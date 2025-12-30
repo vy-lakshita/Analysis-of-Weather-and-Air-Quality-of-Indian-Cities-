@@ -1,0 +1,379 @@
+---
+title: "Air Dataset"
+author: "Lakshita"
+date: "2025-11-10"
+output:
+  html_document:
+    toc: true
+    toc_depth: '3'
+    df_print: paged
+  pdf_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+---
+
+
+# Loading Libraries
+```{r warning=FALSE,message=FALSE}
+library(ggplot2)
+library(maps)
+library(ggrepel)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(corrplot)
+library(gridExtra)
+library(plotly)
+library(factoextra)
+library(psych)
+library(GGally)
+```
+
+# Loading data
+```{r}
+air=read.csv('indian_weather_data.csv')
+head(air)
+
+# making numerical df
+num_df=air[c("lat","lon","temperature","weather_code","co","no2","o3","so2","pm2_5","pm10","wind_speed","wind_degree","pressure",    "precip","humidity","cloudcover","feelslike","visibility" )]
+num_df=data.frame(num_df)
+
+# making categorical df
+cat_df=air[c("city","sunrise","sunset","moonrise","moonset","wind_dir")]
+```
+# Data Handling
+```{r}
+colSums(is.na(air))
+```
+# PCA: Principal Component Analysis
+```{r}
+pca_fit <- prcomp(num_df, scale=TRUE)
+pca_summary<-summary(pca_fit)
+
+importance_matrix<-pca_summary$importance
+
+# Convert to data frame
+pca_df <- as.data.frame(importance_matrix)
+pca_df
+
+# Rotating the factors
+rotation_df<-as.data.frame(pca_fit$rotation[,0:5])
+rotation_df
+```
+
+```{r}
+fviz_pca_biplot(pca_fit, 
+                repel = TRUE,  # Prevents text overlapping
+                col.var = "blue",    # Variables color
+                col.ind = "gray",    # Individuals color
+                title = "PCA Biplot")
+```
+
+# Factor Analysis
+
+## KMO and Bartlett's Test of Sphericity 
+```{r}
+# making a correlation matrix
+correlation_matrix<-cor(num_df)
+
+#KMO Test
+kmo_result <- KMO(correlation_matrix)
+print(kmo_result)
+
+# Bartlett's Test of Sphericity 
+cortest.bartlett(correlation_matrix, n = nrow(num_df))
+```
+1. **KMO Test :** we can observe the overall MSA value is greater than 0.69 indicating that correlation matrix is not identity matrix.
+2. **Bartlett's Test of Sphericity :** We can Observe that the p-value is 1.449223e-293 <0.05 indicating that the data is suitable for factor analysis
+
+## Deciding number of factors
+```{r}
+scree(num_df, factors = FALSE, pc = TRUE, 
+      main = "Scree Plot for Factor Analysis")
+```
+
+
+```{r}
+fa<- fa(num_df, nfactors=5,rotate="varimax",scores="regression")
+fa
+```
+
+
+Factors are:
+
+1. Factor 1: positive effect: co, o3, so2, pm2_5,pm10
+             negative effect: lon, temprature
+             
+2. Factor 2: positive effect: lat,lon,pressure
+             negative effect: temperature,feelslike
+             
+3. Factor 3: positive effect: wether_code,humidity
+             negative effect: visibility
+
+4. Factor 4: positive effect: no2,wind_speed
+
+5. Factor 5: positive effect: precip
+
+* Factor Analysis is used for identifying the **underlying structure of the data**. It helps in reducing variable and these obtained factors can be effectively used for EDA.
+
+* The First Factor can be named as pollutants, Second Factor as geographic_cond, Third Factor is weather_cond , Fourth can be named as ozone since higher wind speed decreases no2 concentration and fifth can be named precipitation
+
+# Data Engineering
+
+## Adding FA Score / Factors for EDA
+```{r}
+# Storing FA Scores as df 
+fa_scores<-as.data.frame(fa$scores)
+
+# renaming column names
+colnames(fa_scores)=c("pollutants","geographic_cond","weather_cond","ozone","precipitation")
+
+# concatenating 2 dfs air and fa_scores
+df<-cbind(air,fa_scores)
+head(df)
+```
+## Converting Weather code and visibility to categorical variables
+```{r}
+df<-df %>% 
+  mutate(weather_cat=case_when(
+    weather_code==113~"sunny",
+    weather_code==122~"partly cloudly",
+    weather_code==143~"mist",
+    weather_code==116~"moderate rain",
+    weather_code==119~"showers",
+    weather_code==248~"fog",
+    weather_code==176~"moderate rain",
+  )) %>% 
+  mutate(visibility_cat=case_when(
+    visibility<1~"very poor",
+    between(visibility,1,3) ~"poor",
+    between(visibility,3,5) ~"moderate",
+    visibility>5 ~"good"
+  )) %>% 
+  mutate(parts_of_India = case_when(
+    between(lat, 28, 37.6) & between(lon, 68.7, 97.25) ~ "North",
+    between(lat, 15, 28) & between(lon, 68, 78) ~ "West",
+    between(lat, 20, 28) & between(lon, 83, 97.25) ~ "East",
+    lat < 20 & between(lon, 74, 84) ~ "South",
+    between(lat, 18, 26) & between(lon, 74, 85) ~ "Central",
+    between(lat, 22, 28) & between(lon, 89, 97.25) ~ "Northeast",
+    TRUE ~ "Other Region"
+  ))
+  
+```
+
+
+# Exploratory Data Analysis
+
+## Correlation among variables 
+```{r}
+# Calculate correlation with pairwise complete observations
+weather_cor <- cor(num_df,
+                   use = "pairwise.complete.obs")
+
+c_color<- colorRampPalette(c("hotpink", "lightgreen","darkblue"))  
+
+corrplot(weather_cor, 
+         method = "color",
+         title = "Weather Variables Correlation",
+         order="hclust",
+         col=c_color(10),
+         tl.col="black"
+         )
+```
+* Positive Correlation: pollutants are highly correlated such as pm2_5, pm_10, co, so2 , no2 is moderately correlated, feelslike and temperature
+
+* Moderate Correlation (positive and negative): We can see moderate correlation between co2 and weather code,longitude with temperature and feelslike,latitude with temprature and feelslike
+
+* Negative Correlation:pressure with feelslike and temprature 
+
+
+## Temprature according to latitude and longitude values
+```{r}
+world<-map_data("world")
+
+#getting the map for india 
+india<-subset(world,region=="India")
+
+
+ggplot()+
+   geom_polygon(data=india,
+                aes(x=long,y=lat,group=group))+
+    geom_point(data=df,
+             aes(x=lon,y=lat,color=pm2_5))+
+  scale_color_continuous(
+    type = "viridis",  # Or "gradient"
+    name = "pm 2.5"
+  )+
+  scale_x_log10()
+```
+
+```{r}
+# setting theme for all plots
+set_theme(theme_minimal()+
+            theme( 
+                plot.title=
+                  element_text(
+                    size=rel(2)),
+                
+                panel.background = 
+                  element_rect(color="black"),
+                
+              ))
+```
+
+## Top 20 cities with worst air quality pm10 and pm2
+```{r}
+# pm10
+df %>% 
+  arrange(desc(pm10)) %>% 
+  select(city,pm10,wind_dir) %>% 
+  slice_head(n=20) %>% 
+  ggplot(
+    aes(x=reorder(city,-pm10),y=pm10,fill=wind_dir)
+  )+
+  labs(
+    title="Highest pm10 Vs Cities and their wind direction",
+    x="Cities",
+    y="PM 10"
+  ) +
+  geom_bar(stat="identity")+
+  theme(
+      axis.text.x = 
+                  element_text(angle=45,
+                                hjust=1,
+                               face="bold")
+  )
+
+
+```
+```{r}
+
+df %>% 
+  arrange(desc(pm2_5)) %>% 
+  select(city,pm2_5,wind_dir) %>% 
+  slice_head(n=20) %>% 
+  ggplot(
+    aes(x=reorder(city,-pm2_5),y=pm2_5,fill=wind_dir)
+  )+
+  geom_bar(stat="identity")+
+  labs(
+    title="Highest pm 2.5 Vs Cities and their wind direction",
+    x="Cities",
+    y="PM 2.5"
+  )+
+  theme(
+      axis.text.x = 
+                  element_text(angle=45,
+                                hjust=1,
+                               face="bold")
+  )
+```
+#One-on-one relationships between two continuous variables
+## Temperature vs PM2.5 levels
+```{r}
+
+# temperature Vs pm2.5 levels
+plot1<-df %>% 
+  ggplot(aes(temperature,pm2_5,size=visibility))+
+  geom_point(color="orange")+
+  labs(
+    title="Temperature Vs pm 2.5",
+    subtitle="There influence on Visibility",
+    x="Temperature",
+    y="pm 2.5"
+  )+
+  theme(
+    aspect.ratio = 1
+  )
+plot1
+
+```
+
+## Temptrature Vs Pressure 
+```{r}
+
+# temperature Vs pm2.5 levels
+plot2<-df %>% 
+  ggplot(aes(temperature,pressure,size=visibility))+
+  geom_point(color="pink")+
+  labs(
+    title="Temperature Vs Pressure",
+    subtitle="There influence on Visibility",
+    x="Temperature",
+    y="Pressure"
+  )+
+  theme(
+    aspect.ratio = 1
+  )
+
+plot2
+```
+# Observing 3 variables Wind speed , Temprature and pm 2.5 concentration
+```{r}
+fig <- plot_ly(df, x = ~wind_speed, y = ~temperature, z = ~pm2_5, color = ~city)
+fig
+```
+# Clustering based on pollutants
+
+## Making dataset for clustering
+```{r}
+# Data for clustering
+k_data<-df %>% 
+  select("city","pollutants","weather_cond","geographic_cond")
+```
+## Selecting number of clusters
+```{r}
+fviz_nbclust(k_data[,c("pollutants","weather_cond","geographic_cond")], kmeans, method = "wss") + 
+  ggtitle("Elbow Method")
+
+fviz_nbclust(k_data[,c("pollutants","weather_cond","geographic_cond")], kmeans, method = "silhouette") + 
+  ggtitle("Silhouette Method")
+```
+## Performing K-means clustering
+```{r}
+# Perform k-means clustering (e.g., 4 clusters)
+set.seed(123)
+kmeans_result <- kmeans(k_data[,c("pollutants","weather_cond","geographic_cond")], centers = 4, nstart = 25)
+print(kmeans_result)
+
+```
+
+## Storing Clusters as factor
+```{r}
+k_data$cluster <- as.factor(kmeans_result$cluster)
+
+k_data %>%
+  mutate(cluster_name = case_when(
+    cluster == 1 ~ "Extremely Clean, Very Warm",
+    cluster== 2 ~ "Outlier City",
+    cluster== 3 ~ "Clean, Bad Weather",
+    cluster== 4 ~ "Very Polluted, Bad Weather",
+    cluster== 5 ~ "Polluted, Good Weather",
+    TRUE ~ "Unknown"
+  ))
+
+```
+## Visualizing clusters
+```{r}
+city_names<-k_data$city
+fviz_cluster(kmeans_result, data = k_data[,c("pollutants","weather_cond","geographic_cond")],
+             palette = "Set2", ggtheme = theme_minimal(),
+             geom = "point") +
+  geom_text(aes(label = city_names), 
+            check_overlap = TRUE, 
+            size = 3, 
+            vjust = -0.5)+
+ labs(
+   title="Clusters Visualization"
+ )+
+  theme(
+    plot.title = 
+      element_text(face = "bold",
+                   size=rel(2)),
+    panel.background = 
+                  element_rect(color="black")
+  )+
+  scale_fill_discrete(labels = c("A", "B", "C","D","E"))
+```
