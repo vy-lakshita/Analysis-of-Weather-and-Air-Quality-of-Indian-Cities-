@@ -1,7 +1,6 @@
 ---
 title: "Air Dataset"
 author: "Lakshita"
-date: "2025-11-10"
 output:
   html_document:
     toc: true
@@ -12,7 +11,8 @@ output:
     number_sections: true
     toc_depth: 3
 ---
-
+# Objective:
+To analyse data and find out factors influencing air in different areas of the country.
 
 # Loading Libraries
 ```{r warning=FALSE,message=FALSE}
@@ -28,47 +28,83 @@ library(plotly)
 library(factoextra)
 library(psych)
 library(GGally)
+library(webshot2)
 ```
 
 # Loading data
 ```{r}
 air=read.csv('indian_weather_data.csv')
-head(air)
+#head(air)
 
 # making numerical df
-num_df=air[c("lat","lon","temperature","weather_code","co","no2","o3","so2","pm2_5","pm10","wind_speed","wind_degree","pressure",    "precip","humidity","cloudcover","feelslike","visibility" )]
+num_df=air[c("lat","lon","temperature","weather_code","co","no2","o3","so2","pm2_5","pm10","wind_speed","wind_degree","pressure","humidity","cloudcover","feelslike","visibility" )]
 num_df=data.frame(num_df)
 
 # making categorical df
 cat_df=air[c("city","sunrise","sunset","moonrise","moonset","wind_dir")]
 ```
 # Data Handling
+## Checking missing value
 ```{r}
 colSums(is.na(air))
 ```
+There are no missing value
+
 # PCA: Principal Component Analysis
 ```{r}
-pca_fit <- prcomp(num_df, scale=TRUE)
-pca_summary<-summary(pca_fit)
+# Normalising data
+scaled_df<-scale(num_df)
 
-importance_matrix<-pca_summary$importance
-
-# Convert to data frame
-pca_df <- as.data.frame(importance_matrix)
-pca_df
-
-# Rotating the factors
-rotation_df<-as.data.frame(pca_fit$rotation[,0:5])
-rotation_df
+# Applying PCA
+data.pca<-princomp(scaled_df)
+summary(data.pca)
 ```
+* Performing PCA requires scaling of data, princomp function was used for this purpose.
 
+* The first five components have eigen value greater than 1. Thus, first five components retain **84% variance** of data. The first 2 components retain maximum variance 56%.
+
+* going ahead we will check the factor loadings of first 5 components for analysis.
+
+## Extracting Loadings
 ```{r}
-fviz_pca_biplot(pca_fit, 
-                repel = TRUE,  # Prevents text overlapping
-                col.var = "blue",    # Variables color
-                col.ind = "gray",    # Individuals color
-                title = "PCA Biplot")
+# extracting the loadings
+data.pca$loadings[,1:5]
 ```
+
+
+## Visualization of Principal components
+```{r warning=FALSE}
+fviz_eig(data.pca,addlabels = TRUE)
+```
+
+## Biplot
+```{r}
+fviz_pca_var(data.pca,col.var="black")+
+  ggtitle("Biplot for variable analysis")
+```
+## Checking contribution of each variable
+```{r}
+fviz_cos2(data.pca,choice="var",axes=1:2)+
+  ggtitle("Contribution of variables to first 2 dimensions")
+```
+## Biplot combined with  cos2
+```{r}
+fviz_pca_var(data.pca,col.var="cos2",
+             gradient.cols=c("black","orange","green"),
+             repel=TRUE)
+```
+
+## Conclusion
+
+1. **Component 1**: The variables pollutants(co2, so2, o3, pm2_5, pm10) and weather variables such as pressure humidity and cloud cover positively contribute to first dimension. The variables like wind_speed , temperature , feelslike negatively contribute to first dimension.This indicates that pollutants dominate this dimension with higher loading.**We can observe that as wind speed decreases and temperature increases small particles settle in that area leading to higher pollutants. They have inverse relationship.**
+
+2. **Component 2:** This is weather dominant component. pollutants negatively contribute to it while weather degree, humidity, pressure a nd visibility affect it positively. **With longitude the pressure in the area increases.Visibility also contributes to this dimension significantly. As pollutants decrease visibility increases.**
+
+3. The first 5 principal components retain **84% variance in data**. But first 2 components constitute most variance.
+
+4. All pollutants are clustered together in biplot. Thus are positively correlated and these variables ar well reperesented. Variables feelslike , temprature , lat, long and pressure are also well represented.
+
+
 
 # Factor Analysis
 
@@ -92,17 +128,18 @@ cortest.bartlett(correlation_matrix, n = nrow(num_df))
 scree(num_df, factors = FALSE, pc = TRUE, 
       main = "Scree Plot for Factor Analysis")
 ```
-
+Thus, 4 factors can be retained to explain the underlying structure as eigen value is greater than 1.
 
 ```{r}
-fa<- fa(num_df, nfactors=5,rotate="varimax",scores="regression")
+fa<- fa(num_df, nfactors=4,rotate="varimax",scores="regression")
 fa
 ```
 
+## Conclusion
 
 Factors are:
 
-1. Factor 1: positive effect: co, o3, so2, pm2_5,pm10
+1. Factor 1: positive effect: co, o3, so2, pm2_5,pm10,lat
              negative effect: lon, temprature
              
 2. Factor 2: positive effect: lat,lon,pressure
@@ -113,11 +150,11 @@ Factors are:
 
 4. Factor 4: positive effect: no2,wind_speed
 
-5. Factor 5: positive effect: precip
-
 * Factor Analysis is used for identifying the **underlying structure of the data**. It helps in reducing variable and these obtained factors can be effectively used for EDA.
 
-* The First Factor can be named as pollutants, Second Factor as geographic_cond, Third Factor is weather_cond , Fourth can be named as ozone since higher wind speed decreases no2 concentration and fifth can be named precipitation
+* The First Factor can be named as**pollutants**, Second Factor as **geographic_cond**, Third Factor is **weather_cond** , Fourth can be named as **ozone** since higher wind speed decreases no2 concentration. 
+
+* All the variables have high commonality that means they are **well represented by the factors.** 
 
 # Data Engineering
 
@@ -127,11 +164,11 @@ Factors are:
 fa_scores<-as.data.frame(fa$scores)
 
 # renaming column names
-colnames(fa_scores)=c("pollutants","geographic_cond","weather_cond","ozone","precipitation")
+colnames(fa_scores)=c("pollutants","geographic_cond","weather_cond","ozone")
 
 # concatenating 2 dfs air and fa_scores
 df<-cbind(air,fa_scores)
-head(df)
+#head(df)
 ```
 ## Converting Weather code and visibility to categorical variables
 ```{r}
@@ -182,14 +219,14 @@ corrplot(weather_cor,
          tl.col="black"
          )
 ```
-* Positive Correlation: pollutants are highly correlated such as pm2_5, pm_10, co, so2 , no2 is moderately correlated, feelslike and temperature
+* Positive Correlation: pollutants are highly correlated such as pm2_5, pm_10, co, so2 , no2 is moderately correlated, feelslike and temperature are highly correlated.
 
 * Moderate Correlation (positive and negative): We can see moderate correlation between co2 and weather code,longitude with temperature and feelslike,latitude with temprature and feelslike
 
 * Negative Correlation:pressure with feelslike and temprature 
 
 
-## Temprature according to latitude and longitude values
+## pm 2.5  according to latitude and longitude values
 ```{r}
 world<-map_data("world")
 
@@ -200,13 +237,19 @@ india<-subset(world,region=="India")
 ggplot()+
    geom_polygon(data=india,
                 aes(x=long,y=lat,group=group))+
-    geom_point(data=df,
+  geom_point(data=df,
              aes(x=lon,y=lat,color=pm2_5))+
   scale_color_continuous(
-    type = "viridis",  # Or "gradient"
+    type = "viridis", 
     name = "pm 2.5"
   )+
-  scale_x_log10()
+  scale_x_log10()+
+  labs(
+    title="pm 2.5 presence across major cities",
+    x="Longitude",
+    y="Latitude"
+  )
+  
 ```
 
 ```{r}
@@ -271,6 +314,7 @@ df %>%
   )
 ```
 #One-on-one relationships between two continuous variables
+
 ## Temperature vs PM2.5 levels
 ```{r}
 
@@ -310,12 +354,30 @@ plot2<-df %>%
 
 plot2
 ```
-# Observing 3 variables Wind speed , Temprature and pm 2.5 concentration
-```{r}
-fig <- plot_ly(df, x = ~wind_speed, y = ~temperature, z = ~pm2_5, color = ~city)
+
+
+## Observing 3 variables Wind speed , Temprature and pm 2.5 concentration
+
+```{r warnings=FALSE,message=FALSE}
+fig <-plot_ly(df, x = ~wind_speed, y = ~temperature, z = ~pm2_5, color = ~city)
+
+
+fig <- fig %>% add_markers() 
+fig <- fig %>% layout(
+                    title = 'Temperature , Wind Speed and pm 2.5 coded with city',
+                    scene =
+                    list(xaxis = list(title = 'Wind Speed'),
+                     yaxis = list(title = 'Temprature'),
+                     zaxis = list(title = 'pm 2.5')))
+
 fig
+
+htmlwidgets::saveWidget(as_widget(fig), "temp.html")
+webshot2::webshot("temp.html", "plot.png", vwidth = 800, vheight = 600)
 ```
-# Clustering based on pollutants
+
+
+# Clustering based on 3 Factors retained
 
 ## Making dataset for clustering
 ```{r}
@@ -343,17 +405,7 @@ print(kmeans_result)
 ## Storing Clusters as factor
 ```{r}
 k_data$cluster <- as.factor(kmeans_result$cluster)
-
-k_data %>%
-  mutate(cluster_name = case_when(
-    cluster == 1 ~ "Extremely Clean, Very Warm",
-    cluster== 2 ~ "Outlier City",
-    cluster== 3 ~ "Clean, Bad Weather",
-    cluster== 4 ~ "Very Polluted, Bad Weather",
-    cluster== 5 ~ "Polluted, Good Weather",
-    TRUE ~ "Unknown"
-  ))
-
+head(k_data)
 ```
 ## Visualizing clusters
 ```{r}
@@ -375,5 +427,31 @@ fviz_cluster(kmeans_result, data = k_data[,c("pollutants","weather_cond","geogra
     panel.background = 
                   element_rect(color="black")
   )+
-  scale_fill_discrete(labels = c("A", "B", "C","D","E"))
+  scale_fill_discrete(labels = c("High pollution, poor weather", "High pollution,moderate weather", "Low pollution, moderate weather","Low pollution, good weather"))
 ```
+
+# Key Insights 
+
+* The cities in the north like Noida, Delhi , Kanpur , Lucknow, Patna, Agra , Karnal lie in north of India. Pollution in these areas could be due to **stubble burning** and bad weather conditions like **low wind speed and high temperature**.
+
+* The cities like Ahmedabad, Vadodra , Vapi , Mumbai, Chennai seem to have low pollution due to good geographical condition - **proximity costal area or water body.** 
+
+* The cities like Dehradun, Shimla, Sangli , Udaipur , Bikaner do not have major industries that contribute to bad air quality. They are mostly **destinations for vacations.**
+
+* Other cities  like Ambala, Thanesar, Karnal, Agra are **major manufacturing hub**s. In Agra the pollution can also be linked to** tourism** that leads to  rise in levels of co and no.
+
+* We can easily observe that the most polluted cities Faridabad , Noida , New Delhi , Agra etc are in **north of India**. Irregular farming practices like **stubble burning, livestock farming and excessive use of chemical fertilizers and pesticides** is responsible for pollution . In addition to that **vehicular emission, improper waste disposal and manufacturing company's non- compliance to regulations** lead to rise in pollutants.
+
+# Actions
+
+* Adoption of Sustainable Agricultural Practices (PUSA Bio decomposer) and raising their awareness. This process leads to long term benefits to soil health , economic and environmental benefit.  
+
+* Implementing stringent rules and penalties on manufacturing organisation that do not treat gases before its emission in enviornment.
+
+* Simple solutions like car pooling , household waste management , implementation and usage of public transportation is the key  to reduce pollutants. 
+
+* Incentivizing diversification of crops and providing financial assistance and to farmers for it.
+
+* Specific policies can be developed for all high polluted clustered cities with similar geographical and weather condition.
+
+
