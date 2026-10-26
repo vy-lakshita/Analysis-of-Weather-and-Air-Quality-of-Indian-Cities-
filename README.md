@@ -3,7 +3,7 @@ It makes use of different multivariate techniques and R packages to explore the 
 <br>
 <img width="1344" height="960" alt="cluster visualization" src="https://github.com/user-attachments/assets/88a719e2-0efe-444d-98c0-fa7564e0e6fc" />
 ## Key Insights
-* The cities in the north like Noida, Delhi , Kanpur , Lucknow, Patna, Agra , Karnal lie in north of India. Pollution in these areas could be due to **stubble burning** and bad weather conditions like **low wind speed and high temperature**.
+* The cities in the north like Noida, Delhi , Kanpur , Lucknow, Patna, Agra , Karnal lie in north of India. Pollution in these areas could be due to **stubble burning** and bad weather conditions like **low wind speed and low temperature**.
 
 * The cities like Ahmedabad, Vadodra , Vapi , Mumbai, Chennai seem to have low pollution due to good geographical condition - **proximity costal area or water body.** 
 
