@@ -66,7 +66,7 @@ R with `tidyverse`, `ggplot2`, `factoextra`, `psych`, `corrplot`, `plotly`, `map
 - All pollutants cluster together in the biplot, so they are strongly positively correlated.
 
 ### Factor Analysis
-- KMO is about 0.69 or higher, and Bartlett's test gives p ≈ 1e-293, so the data suits factor analysis.
+- KMO is about 0.69, and Bartlett's test gives p ≈ 1e-293, so the data suits factor analysis.
 - The four factors are:
   1. **Pollutants:** CO, O₃, SO₂, PM2.5, PM10
   2. **Geographic conditions:** latitude, longitude, pressure
@@ -81,7 +81,7 @@ R with `tidyverse`, `ggplot2`, `factoextra`, `psych`, `corrplot`, `plotly`, `map
 
 ## Key Insights
 
-- **Northern cities** (Noida, Delhi, Faridabad, Kanpur, Lucknow, Patna, Agra, Karnal) are the most polluted. Likely contributors are **stubble burning**, low wind speed and unfavourable weather.
+- **Northern cities** (Noida, Delhi, Faridabad, Kanpur, Lucknow, Patna, Agra, Karnal) are the most polluted. Likely contributors are  low wind speed and unfavourable weather.
 - **Coastal and water-adjacent cities** (Ahmedabad, Vadodara, Vapi, Mumbai, Chennai) have low pollution, helped by **proximity to the coast or a water body**.
 - **Tourist and hill towns** (Dehradun, Shimla, Sangli, Udaipur, Bikaner) have little heavy industry and low pollution.
 - **Manufacturing hubs** (Ambala, Thanesar, Karnal, Agra) are polluted. In Agra, tourism may also add to CO and NO levels.
