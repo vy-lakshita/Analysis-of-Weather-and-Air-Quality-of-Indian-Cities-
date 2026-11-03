@@ -442,16 +442,5 @@ fviz_cluster(kmeans_result, data = k_data[,c("pollutants","weather_cond","geogra
 
 * We can easily observe that the most polluted cities Faridabad , Noida , New Delhi , Agra etc are in **north of India**. Irregular farming practices like **stubble burning, livestock farming and excessive use of chemical fertilizers and pesticides** is responsible for pollution . In addition to that **vehicular emission, improper waste disposal and manufacturing company's non- compliance to regulations** lead to rise in pollutants.
 
-# Actions
-
-* Adoption of Sustainable Agricultural Practices (PUSA Bio decomposer) and raising their awareness. This process leads to long term benefits to soil health , economic and environmental benefit.  
-
-* Implementing stringent rules and penalties on manufacturing organisation that do not treat gases before its emission in enviornment.
-
-* Simple solutions like car pooling , household waste management , implementation and usage of public transportation is the key  to reduce pollutants. 
-
-* Incentivizing diversification of crops and providing financial assistance and to farmers for it.
-
-* Specific policies can be developed for all high polluted clustered cities with similar geographical and weather condition.
 
 
